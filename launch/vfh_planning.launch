@@ -1,0 +1,14 @@
+<launch>
+
+ <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find Robotics_Final_Project)/worlds/updated_maze.world" />
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include> 
+
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_gazebo_rviz.launch">
+  </include>
+</launch>
