@@ -25,6 +25,7 @@ class VFHAlgorithm:
         self.goal_x = 0
         self.goal_y = 0
         self.active_window = None
+        self.draw_flag = False
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
@@ -80,16 +81,20 @@ class VFHAlgorithm:
         return response
     
     def animate_plot(self, i):
-        if (self.alpha != 0):
+        if (self.alpha != 0) and (self.draw_flag == False):
             self.ax.cla()
             bins = [x * 5 for x in range(1, int(360 / self.alpha) + 1)]
-            hist = self.ax.bar(bins, height=self.smooth_POD_histogram, width= -self.alpha, align='edge', edgecolor='white')
+            self.hist = self.ax.bar(bins, height=self.smooth_POD_histogram, width= -self.alpha, align='edge', edgecolor='white')
             self.ax.set_xticks([0, 90, 180, 270, 360])
             self.ax.set_xticklabels(['0°', '90°', '180°', '270°', '360°'])
             self.ax.set_xlabel('Angle')
             self.ax.set_ylabel('POD')
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
+            self.draw_flag = True
+        elif self.draw_flag == True:
+            for i, b in enumerate(self.hist):
+                b.set_height(self.smooth_POD_histogram[i])
 
     def plot_histogram(self):
         animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False)
