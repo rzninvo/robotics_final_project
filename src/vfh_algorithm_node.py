@@ -97,7 +97,7 @@ class VFHAlgorithm:
                 b.set_height(self.smooth_POD_histogram[i])
 
     def plot_histogram(self):
-        animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False)
+        animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False, interval = 1)
         plt.show(block= True)
 
 if __name__ == "__main__":
