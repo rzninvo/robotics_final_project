@@ -28,7 +28,7 @@ class VFHAlgorithm:
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_title('Polar Obstacle Density Histogram')
+        self.fig.suptitle('Polar Obstacle Density Histogram')
 
         self.vfh_service = rospy.Service('vfh_planner_service', vfh_planner, self.vfh_planner_callback)
         
@@ -42,8 +42,6 @@ class VFHAlgorithm:
         active_window = {}
         counter = 90
         for laser_reading in self.laser_data:
-            if counter >= 270:
-                counter = 0
             reading_x = abs(laser_reading * math.cos(math.radians(counter)))
             reading_y = abs(laser_reading * math.sin(math.radians(counter)))
             maximum_width = (window_size - 1) / 2
@@ -52,17 +50,18 @@ class VFHAlgorithm:
             else:
                 active_window[counter] = 0
             counter += 1
+            counter = counter % 360
         return active_window
     
     def calculate_smoothed_POD_histogram(self):
-        active_window_list = list(self.active_window.values())
-        POD_histogram = [sum(active_window_list[self.alpha * k : self.alpha * (k + 1)]) for k in range(int(360 / self.alpha))]
+        active_window_list = [self.active_window[i] for i in range(0, 360)]
+        self.POD_histogram = [sum(active_window_list[self.alpha * k : self.alpha * (k + 1)]) for k in range(int(360 / self.alpha))]
         smoothed_POD_histogram = []
-        for k in range(len(POD_histogram)):
-            sum_element = POD_histogram[k]
-            length = len(POD_histogram)
+        for k in range(len(self.POD_histogram)):
+            sum_element = self.POD_histogram[k]
+            length = len(self.POD_histogram)
             for i in range(self.l):
-                sum_element += (POD_histogram[k - (i + 1)] + POD_histogram[(k + (i + 1)) % length])
+                sum_element += (self.POD_histogram[k - (i + 1)] + self.POD_histogram[(k + (i + 1)) % length])
             smoothed_POD_histogram.append(sum_element / ((2 * self.l) + 1))
         return smoothed_POD_histogram
 
