@@ -1,0 +1,10 @@
+int8 alpha
+float64 a
+float64 b
+int8 l
+int8 valley_threshold
+int8 s_max 
+float64 goal_x
+float64 goal_y
+---
+float64 direction
