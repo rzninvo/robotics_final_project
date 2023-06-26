@@ -5,8 +5,10 @@ import rospy
 from sensor_msgs.msg import LaserScan
 from robotics_final_project.srv import vfh_planner, vfh_plannerResponse
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.colors import TwoSlopeNorm
 
 class VFHAlgorithm:
     
@@ -26,6 +28,8 @@ class VFHAlgorithm:
         self.goal_y = 0
         self.active_window = None
         self.draw_flag = False
+        self.smooth_POD_histogram = []
+        self.POD_histogram = []
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
@@ -75,26 +79,38 @@ class VFHAlgorithm:
         self.goal_y = req.goal_y
         self.valley_threshold = req.valley_threshold
         self.s_max = req.s_max
-        self.active_window = self.calculate_active_window()
-        self.smooth_POD_histogram = self.calculate_smoothed_POD_histogram()
+        if (len(self.laser_data) != 0):
+            self.active_window = self.calculate_active_window()
+            self.smooth_POD_histogram = self.calculate_smoothed_POD_histogram()
+            maximum = max(self.smooth_POD_histogram)
+            minimum = min(self.smooth_POD_histogram)
+            divnorm = TwoSlopeNorm(vmin= minimum, vcenter= self.valley_threshold, vmax= maximum)
+            self.cmap = plt.get_cmap('RdYlGn_r')(divnorm(self.smooth_POD_histogram))
         response = vfh_plannerResponse()
         return response
     
     def animate_plot(self, i):
-        if (self.alpha != 0) and (self.draw_flag == False):
+        if (self.alpha != 0) and (self.draw_flag == False) and (len(self.smooth_POD_histogram) != 0):
             self.ax.cla()
             bins = [x * 5 for x in range(1, int(360 / self.alpha) + 1)]
-            self.hist = self.ax.bar(bins, height=self.smooth_POD_histogram, width= -self.alpha, align='edge', edgecolor='white')
+            self.hist = self.ax.bar(bins, height=self.smooth_POD_histogram, width= -self.alpha, align='edge', edgecolor='white', color = self.cmap)
             self.ax.set_xticks([0, 90, 180, 270, 360])
             self.ax.set_xticklabels(['0°', '90°', '180°', '270°', '360°'])
+            y_ticks = list(self.ax.get_yticks())
+            y_ticks.append(self.valley_threshold)
+            y_ticks.sort()
+            self.ax.set_yticks(y_ticks)
             self.ax.set_xlabel('Angle')
             self.ax.set_ylabel('POD')
+            self.ax.axhline(y=self.valley_threshold, color='r', linestyle='--', linewidth=1, label = 'Valley Threshold')
             self.fig.canvas.draw()
+            self.ax.legend()
             self.fig.canvas.flush_events()
             self.draw_flag = True
         elif self.draw_flag == True:
             for i, b in enumerate(self.hist):
                 b.set_height(self.smooth_POD_histogram[i])
+                b.set_facecolor(self.cmap[i])
 
     def plot_histogram(self):
         animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False, interval = 1)
