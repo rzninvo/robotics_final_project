@@ -39,10 +39,6 @@ class VFHPathFinder:
         self.rate = 1/self.dt
 
         self.r = rospy.Rate(self.rate)
-
-        # defining the states of our robot
-        self.GO, self.FOLLOW, self.ROTATE = 0, 1, 2
-        self.state = self.GO
     
     # heading of the robot 
     def get_heading(self):
@@ -59,15 +55,41 @@ class VFHPathFinder:
         
         return yaw
 
-    def get_bb_from_server(self):
+    def get_goal_angle_from_server(self):
+        msg = rospy.wait_for_message("/odom" , Odometry)
         rospy.wait_for_service('vfh_planner_service')
         try:
+            pos = msg.pose.pose.position
             gbb_data_service = rospy.ServiceProxy('vfh_planner_service', vfh_planner)
             response : vfh_plannerResponse = gbb_data_service(self.alpha, self.coefficient_a, self.coefficient_b, 
-                                    self.coefficient_l, self.valley_threshold, self.s_max, self.goal_x, self.goal_y)
-            
+                                    self.coefficient_l, self.valley_threshold, self.s_max, pos.x, pos.y, self.goal_x, self.goal_y)
+            return response.direction
         except rospy.ServiceException as e:
            rospy.loginfo(f'ERROR from vfh_planner_service: {e}')
+
+    def calculate_rotation_error(self, rotation_goal):
+        heading = self.get_heading()
+        if (rotation_goal <= math.radians(270)):
+            alpha_rotation = rotation_goal - math.radians(90)
+        else:
+            alpha_rotation = rotation_goal - math.radians(90)
+        beta_rotation = alpha_rotation + 2 * math.pi
+        gamma_rotation = alpha_rotation - 2 * math.pi
+        
+        rotations = [abs(alpha_rotation), abs(beta_rotation), abs(gamma_rotation)]
+        min_indx = rotations.index(min(rotations))
+
+        rotation = 0
+        if min_indx == 0:
+            rotation = alpha_rotation
+        elif min_indx == 1:
+            rotation = beta_rotation
+        elif min_indx == 2:
+            rotation = gamma_rotation
+
+        rospy.loginfo(f'ROTATION_GOAL: {rotation_goal}, HEADING: {heading}, ROTATION: {rotation}')
+
+        return alpha_rotation
 
     def run(self):
 
@@ -77,14 +99,22 @@ class VFHPathFinder:
         angular_sum_i_theta = 0
         angular_prev_theta_error = 0
         
+        move_cmd = Twist()
+        move_cmd.linear.x = self.linear_spead
+        move_cmd.angular.z = 0
+
         while (not rospy.is_shutdown()):
 
-            if self.state == self.GO:
-                self.get_bb_from_server()
-                twist = Twist()
-                twist.linear.x = self.linear_spead
-                self.cmd_vel.publish(twist)
-                continue
+            self.cmd_vel.publish(move_cmd)
+            rotation_goal = self.get_goal_angle_from_server()
+            err_gamma = self.calculate_rotation_error(rotation_goal)
+
+            angular_P = self.angular_k_p * err_gamma
+            angular_I = self.angular_k_i * angular_sum_i_theta
+            angular_D = self.angular_k_d * (err_gamma - angular_prev_theta_error)
+
+            move_cmd.angular.z = angular_P + angular_I + angular_D
+            angular_prev_theta_error = err_gamma
 
         twist = Twist()  
         self.cmd_vel.publish(Twist())

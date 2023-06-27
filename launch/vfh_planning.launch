@@ -5,9 +5,9 @@
   <arg name="z_pos" default="0.0"/>
 
   <node pkg="robotics_final_project" type="vfh_pathfinder_node.py" name="vfh_pathfinder_node" output="screen">
-    <param name="linear_spead" value="0.1"/>
-    <param name="angular_k_p" value="2.75"/>
-    <param name="angular_k_d" value="27.5"/>
+    <param name="linear_spead" value="0.4"/>
+    <param name="angular_k_p" value="1.15"/>
+    <param name="angular_k_d" value="11.5"/>
     <param name="angular_k_i" value="0"/>
     <param name="dt" value="0.005"/>
     <param name="goal_x" value="-7"/>
@@ -17,8 +17,8 @@
     <param name="coefficient_a" value="1"/>
     <param name="coefficient_b" value="0.25"/>
     <param name="coefficient_l" value="2"/>
-    <param name="valley_threshold" value="2"/>
-    <param name="s_max" value="5"/>
+    <param name="valley_threshold" value="4"/>
+    <param name="s_max" value="20"/>
   </node>
 
  <node pkg="robotics_final_project" type="vfh_algorithm_node.py" name="vfh_algorithm_node" output="screen"></node>

@@ -3,7 +3,9 @@ float64 a
 float64 b
 int8 l
 float64 valley_threshold
-int8 s_max 
+int8 s_max
+float64 current_x
+float64 current_y
 float64 goal_x
 float64 goal_y
 ---
