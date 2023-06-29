@@ -6,7 +6,9 @@ float64 valley_threshold
 int8 s_max
 float64 current_x
 float64 current_y
+float64 current_heading
 float64 goal_x
 float64 goal_y
 ---
 float64 direction
+float64 h_c

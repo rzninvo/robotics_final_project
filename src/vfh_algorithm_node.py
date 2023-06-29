@@ -35,12 +35,14 @@ class VFHAlgorithm:
         self.candidate_valleys = []
         self.candidate_valleys_index = []
         self.goal_angle = 0
+        self.current_heading = 0
 
         self.fig = plt.figure()
         self.fig.set_figheight(self.fig.get_figheight() * 2)
         self.axes = [self.fig.add_subplot(211), self.fig.add_subplot(212)]
         self.hists = []
         self.axvlines = []
+        self.axhlines = []
         self.axes[0].set_title('Polar Obstacle Density Histogram')
         self.axes[1].set_title('Candidate Valleys')
 
@@ -51,16 +53,20 @@ class VFHAlgorithm:
 
     def calculate_active_window(self):
         maximum_distance = self.a / self.b
-        # We know that: maximum_distance = sqrt(2)*(window_size - 1)/2
-        window_size = (math.sqrt(2) * maximum_distance) + 1
+        # We know that: maximum_distance = sqrt(2)*(window_size)/2
+        window_size = (math.sqrt(2) * maximum_distance)
         active_window = {}
-        counter = 90
+        counter = 0
         for laser_reading in self.laser_data:
             reading_x = abs(laser_reading * math.cos(math.radians(counter)))
             reading_y = abs(laser_reading * math.sin(math.radians(counter)))
-            maximum_width = (window_size - 1) / 2
+            maximum_width = (window_size) / 2
             if max(maximum_width, reading_x, reading_y) == maximum_width:
-                active_window[counter] = self.a - (self.b * laser_reading)
+                confidence = 1
+                if (maximum_width != 0):
+                    confidence = laser_reading / (2 * maximum_width) 
+                    confidence = abs(confidence - 1)
+                active_window[counter] = (confidence ** 2) * (self.a - (self.b * laser_reading))
             else:
                 active_window[counter] = 0
             counter += 1
@@ -73,52 +79,79 @@ class VFHAlgorithm:
         smoothed_POD_histogram = []
         candidate_valleys = []
         candidate_valleys_index = []
+        length = len(self.POD_histogram)
         for k in range(len(self.POD_histogram)):
             sum_element = self.POD_histogram[k] * self.l
-            length = len(self.POD_histogram)
             for i in range(self.l):
                 sum_element += (self.POD_histogram[k - (i + 1)] + self.POD_histogram[(k + (i + 1)) % length]) * (self.l - i)
             smoothed_element = sum_element / ((2 * self.l) + 1)
             smoothed_POD_histogram.append(smoothed_element)
-            if smoothed_element < self.valley_threshold:
+            if (smoothed_element < self.valley_threshold):
                 candidate_valleys.append(smoothed_element)
                 candidate_valleys_index.append(k)
             else:
                 candidate_valleys.append(0)
         return smoothed_POD_histogram, candidate_valleys, candidate_valleys_index
     
-    def calculate_angle(self):
+    def calculate_goal_angle(self):
         goal_angle = math.atan2(self.goal_y - self.current_y, self.goal_x - self.current_x)
-        if (goal_angle < 0):
-            goal_angle += 2 * math.pi
-        goal_angle = np.rad2deg(goal_angle)
+        alpha_rotation = goal_angle - self.current_heading
+        beta_rotation = alpha_rotation + 2 * math.pi
+        gamma_rotation = alpha_rotation - 2 * math.pi
+        
+        rotations = [abs(alpha_rotation), abs(beta_rotation), abs(gamma_rotation)]
+        min_indx = rotations.index(min(rotations))
+
+        rotation = 0
+        if min_indx == 0:
+            rotation = alpha_rotation
+        elif min_indx == 1:
+            rotation = beta_rotation
+        elif min_indx == 2:
+            rotation = gamma_rotation
+
+        if (rotation < 0):
+            rotation += 2 * math.pi
+        return rotation
+    
+    def calculate_angle(self):
+        if len(self.candidate_valleys_index) == 0:
+            return 0
+        goal_angle = np.rad2deg(self.calculate_goal_angle())
+        self.goal_angle = goal_angle
         goal_sector = round(goal_angle / self.alpha)
-        k_n = np.argmin([abs(x - goal_sector) for x in self.candidate_valleys_index])
+        #rospy.loginfo(f'GOAL ANGLE = {goal_angle} |-| GOAL SECTOR = {goal_sector} |-| CURRENT_HEADING = {np.rad2deg(self.current_heading)}')
+        minimum = 1000
+        k_n = -1
+        for i in range(len(self.candidate_valleys_index)):
+            x = self.candidate_valleys_index[i]
+            min_distance = min(abs(x - goal_sector), abs(abs(x - goal_sector) - len(self.smooth_POD_histogram)))
+            if min_distance < minimum:
+                if ((x * self.alpha) < 90) or ((x * self.alpha) > 270):
+                    minimum = min_distance
+                    k_n = x
+        if k_n == -1:
+            k_n_index = np.argmin([min(abs(x - goal_sector), abs(abs(x - goal_sector) - len(self.smooth_POD_histogram))) for x in self.candidate_valleys_index])
+            k_n = self.candidate_valleys_index[k_n_index]
         k_f = k_n
-        if (self.candidate_valleys_index[k_n] == goal_sector):
+        if (k_n == goal_sector):
             return math.radians(goal_sector * self.alpha)
-        elif (self.candidate_valleys_index[k_n] > goal_sector):
-            candidate_length = len(self.candidate_valleys_index)
+        elif k_n > goal_sector:
             historgram_length = len(self.smooth_POD_histogram)
             for i in range(1, self.s_max + 1):
-                if abs(self.candidate_valleys_index[(k_n + i) % candidate_length] - self.candidate_valleys_index[k_f]) == 1:
-                    k_f = (k_n + i) % candidate_length
-                elif abs(self.candidate_valleys_index[(k_n + i) % candidate_length] - self.candidate_valleys_index[k_f]) == (historgram_length - 1):
-                    k_f = (k_n + i) % candidate_length
+                if (self.smooth_POD_histogram[(k_n + i) % historgram_length] < self.valley_threshold) and ((((k_n + i) % historgram_length) * self.alpha) <= math.radians(90)):
+                    k_f = k_n + i
                 else:
                     break
-            return math.radians((((self.candidate_valleys_index[k_n] + self.candidate_valleys_index[k_f]) % historgram_length) / 2.0) * self.alpha)
+            return math.radians(round(((k_n + k_f) / 2.0) % historgram_length) * self.alpha)
         else:
-            candidate_length = len(self.candidate_valleys_index)
             historgram_length = len(self.smooth_POD_histogram)
             for i in range(1, self.s_max + 1):
-                if abs(self.candidate_valleys_index[(k_n - i)] - self.candidate_valleys_index[k_f]) == 1:
-                    k_f = (k_n - i)
-                elif abs(self.candidate_valleys_index[(k_n - i)] - self.candidate_valleys_index[k_f]) == (historgram_length - 1):
-                    k_f = (k_n - i)
+                if (self.smooth_POD_histogram[(k_n - i)] < self.valley_threshold) and (((k_n - i) % historgram_length) * self.alpha >= math.radians(270)):
+                    k_f = k_n - i
                 else:
                     break
-            return math.radians((((self.candidate_valleys_index[k_n] + self.candidate_valleys_index[k_f]) % historgram_length) / 2.0) * self.alpha)
+            return math.radians(round(((k_n + k_f) / 2.0) % historgram_length) * self.alpha)
 
     def vfh_planner_callback(self, req : vfh_planner) -> vfh_plannerResponse:
         self.alpha = req.alpha
@@ -127,6 +160,7 @@ class VFHAlgorithm:
         self.l = req.l
         self.current_x = req.current_x
         self.current_y = req.current_y
+        self.current_heading = req.current_heading
         self.goal_x = req.goal_x
         self.goal_y = req.goal_y
         self.valley_threshold = req.valley_threshold
@@ -134,17 +168,24 @@ class VFHAlgorithm:
         if (len(self.laser_data) != 0):
             self.active_window = self.calculate_active_window()
             self.smooth_POD_histogram, self.candidate_valleys, self.candidate_valleys_index = self.calculate_smoothed_POD_histogram()
-            self.goal_angle = self.calculate_angle()
+            goal_angle = self.calculate_angle()
             maximum = max(self.smooth_POD_histogram)
             minimum = min(self.smooth_POD_histogram)
-            divnorm = TwoSlopeNorm(vmin= minimum, vcenter= self.valley_threshold, vmax= maximum)
-            self.cmap = plt.get_cmap('RdYlGn_r')(divnorm(self.smooth_POD_histogram))    
+            #     divnorm = TwoSlopeNorm(vmin= self.valley_threshold, vcenter= minimum, vmax= maximum)
+            # elif (self.valley_threshold > maximum):
+            #         divnorm = TwoSlopeNorm(vmin= minimum, vcenter= maximum, vmax= self.valley_threshold)
+            # else:
+            if (self.valley_threshold >= minimum) and (self.valley_threshold <= maximum):
+                self.divnorm = TwoSlopeNorm(vmin= minimum, vcenter= self.valley_threshold, vmax= maximum)
+            self.cmap = plt.get_cmap('RdYlGn_r')(self.divnorm(self.smooth_POD_histogram)) 
             response = vfh_plannerResponse()
-            response.direction = self.goal_angle
+            response.direction = goal_angle
+            response.h_c = max(max(self.smooth_POD_histogram[0:7]), max(self.smooth_POD_histogram[65:72]))
             return response
         else:
             response = vfh_plannerResponse()
-            response.direction = math.radians(90)
+            response.direction = math.radians(0)
+            response.h_c = 0
             return response
     
     def animate_plot(self, i):
@@ -164,12 +205,8 @@ class VFHAlgorithm:
                 self.axes[i].set_yticks(y_ticks)
                 self.axes[i].set_xlabel('Angle')
                 self.axes[i].set_ylabel('POD')
-                self.axes[i].axhline(y=self.valley_threshold, color='r', linestyle='--', linewidth=1, label = 'Valley Threshold')
-                goal_angle = math.atan2(self.goal_y - self.current_y, self.goal_x - self.current_x)
-                if (goal_angle < 0):
-                    goal_angle += 2 * math.pi
-                goal_angle = np.rad2deg(goal_angle)
-                self.axvlines.append(self.axes[i].axvline(x=goal_angle, color='b', linestyle='-', linewidth=1, label = 'Target_Angle'))
+                self.axhlines.append(self.axes[i].axhline(y=self.valley_threshold, color='r', linestyle='--', linewidth=1, label = 'Valley Threshold'))
+                self.axvlines.append(self.axes[i].axvline(x=self.goal_angle, color='b', linestyle='-', linewidth=1, label = 'Target_Angle'))
                 self.axes[i].legend()
             self.axes[0].set_title('Polar Obstacle Density Histogram')
             self.axes[1].set_title('Candidate Valleys')
@@ -185,18 +222,18 @@ class VFHAlgorithm:
             for i, b in enumerate(hist2):
                 b.set_height(self.candidate_valleys[i])
                 b.set_facecolor(self.cmap[i])
-            goal_angle = math.atan2(self.goal_y - self.current_y, self.goal_x - self.current_x)
-            if (goal_angle < 0):
-                goal_angle += 2 * math.pi
-            goal_angle = np.rad2deg(goal_angle)
-            self.axvlines[0].set_xdata(goal_angle)
-            self.axvlines[1].set_xdata(goal_angle)
+            self.axvlines[0].set_xdata(self.goal_angle)
+            self.axvlines[1].set_xdata(self.goal_angle)
+            self.axhlines[0].set_ydata(self.valley_threshold)
+            self.axhlines[1].set_ydata(self.valley_threshold)
 
     def plot_histogram(self):
-        animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False, interval = 1)
+        animation = FuncAnimation(self.fig, self.animate_plot, cache_frame_data=False)
         plt.show(block= True)
 
 if __name__ == "__main__":
     controller = VFHAlgorithm()
     controller.plot_histogram()
+    # r = rospy.Rate(500)
+    # r.sleep()
     rospy.spin()

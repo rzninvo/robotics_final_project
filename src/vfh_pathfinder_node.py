@@ -26,8 +26,9 @@ class VFHPathFinder:
         self.angular_k_i = rospy.get_param("/vfh_pathfinder_node/angular_k_i")
         self.angular_k_d = rospy.get_param("/vfh_pathfinder_node/angular_k_d")
         self.dt = rospy.get_param("/vfh_pathfinder_node/dt")
-        self.goal_x = rospy.get_param("/vfh_pathfinder_node/goal_x")
-        self.goal_y = rospy.get_param("/vfh_pathfinder_node/goal_y")
+        self.next_position = 0
+        self.goal_coordinates = [(4.4, 0), (3.66, 4.47), (2.19, 1.46), (0.55, 1.83), (1.0, 5.43), (2.05, 5.64), (2.89, 6.60), (3.90, 6.83), (4.55, 5.65), (5.54, 5.59), (5.8, 3.08), (7.30, 3.2), (7.21, 6.64), (13, 6.64)]
+        self.thresholds = [2, 3, 4, 4, 3, 4, 3.4, 3.5, 4, 3, 3, 3, 4, 3]
         self.epsilon = rospy.get_param("/vfh_pathfinder_node/epsilon")
         self.alpha = rospy.get_param("/vfh_pathfinder_node/alpha")
         self.coefficient_a = rospy.get_param("/vfh_pathfinder_node/coefficient_a")
@@ -35,10 +36,11 @@ class VFHPathFinder:
         self.coefficient_l = rospy.get_param("/vfh_pathfinder_node/coefficient_l")
         self.valley_threshold = rospy.get_param("/vfh_pathfinder_node/valley_threshold")
         self.s_max = rospy.get_param("/vfh_pathfinder_node/s_max")
+        self.h_m = rospy.get_param("/vfh_pathfinder_node/h_m")
 
         self.rate = 1/self.dt
 
-        self.r = rospy.Rate(self.rate)
+        #self.r = rospy.Rate(1000)
     
     # heading of the robot 
     def get_heading(self):
@@ -55,24 +57,37 @@ class VFHPathFinder:
         
         return yaw
 
+    def get_distance_from_goal(self):
+        msg = rospy.wait_for_message("/odom" , Odometry)
+        pos = msg.pose.pose.position
+        return math.sqrt(((self.goal_coordinates[self.next_position][0] - pos.x) ** 2) + ((self.goal_coordinates[self.next_position][1] - pos.y) ** 2))
+
     def get_goal_angle_from_server(self):
         msg = rospy.wait_for_message("/odom" , Odometry)
+        heading = self.get_heading()
         rospy.wait_for_service('vfh_planner_service')
         try:
             pos = msg.pose.pose.position
             gbb_data_service = rospy.ServiceProxy('vfh_planner_service', vfh_planner)
             response : vfh_plannerResponse = gbb_data_service(self.alpha, self.coefficient_a, self.coefficient_b, 
-                                    self.coefficient_l, self.valley_threshold, self.s_max, pos.x, pos.y, self.goal_x, self.goal_y)
-            return response.direction
+                                    self.coefficient_l, self.valley_threshold, self.s_max, pos.x, pos.y, heading,
+                                      self.goal_coordinates[self.next_position][0], self.goal_coordinates[self.next_position][1])
+            return response.direction, response.h_c
         except rospy.ServiceException as e:
            rospy.loginfo(f'ERROR from vfh_planner_service: {e}')
 
     def calculate_rotation_error(self, rotation_goal):
         heading = self.get_heading()
-        if (rotation_goal <= math.radians(270)):
-            alpha_rotation = rotation_goal - math.radians(90)
+        if (rotation_goal <= math.radians(180)):
+            if (rotation_goal <= math.radians(135)):
+                alpha_rotation = rotation_goal
+            else:
+                alpha_rotation = 0#rotation_goal * 0.002
         else:
-            alpha_rotation = rotation_goal - math.radians(90)
+            if (rotation_goal >= math.radians(225)):
+                alpha_rotation = rotation_goal
+            else:
+                alpha_rotation = 0#rotation_goal * 0.002
         beta_rotation = alpha_rotation + 2 * math.pi
         gamma_rotation = alpha_rotation - 2 * math.pi
         
@@ -87,9 +102,9 @@ class VFHPathFinder:
         elif min_indx == 2:
             rotation = gamma_rotation
 
-        rospy.loginfo(f'ROTATION_GOAL: {rotation_goal}, HEADING: {heading}, ROTATION: {rotation}')
+        #rospy.loginfo(f'ROTATION_GOAL: {np.rad2deg(rotation_goal)}, HEADING: {np.rad2deg(heading)}, ROTATION: {np.rad2deg(rotation)}')
 
-        return alpha_rotation
+        return rotation
 
     def run(self):
 
@@ -105,16 +120,30 @@ class VFHPathFinder:
 
         while (not rospy.is_shutdown()):
 
+            self.valley_threshold = self.thresholds[self.next_position]
+
             self.cmd_vel.publish(move_cmd)
-            rotation_goal = self.get_goal_angle_from_server()
+            rotation_goal, h_c = self.get_goal_angle_from_server()
             err_gamma = self.calculate_rotation_error(rotation_goal)
+            # if err_gamma == 0:
+            #     err_gamma == angular_prev_theta_error
 
             angular_P = self.angular_k_p * err_gamma
             angular_I = self.angular_k_i * angular_sum_i_theta
             angular_D = self.angular_k_d * (err_gamma - angular_prev_theta_error)
 
+            h_c_prime = min(self.h_m, h_c)
+            v = self.linear_spead * (1 - (h_c_prime / self.h_m))
+
             move_cmd.angular.z = angular_P + angular_I + angular_D
+            move_cmd.linear.x = v
             angular_prev_theta_error = err_gamma
+
+            if self.get_distance_from_goal() <= self.epsilon:
+                self.next_position += 1
+            rospy.loginfo(f'NEXT_POSITION = ({self.goal_coordinates[self.next_position][0]}, {self.goal_coordinates[self.next_position][1]}')
+            #rospy.loginfo(f'NODE_PATHFINDER: {rospy.get_time()}')
+            #self.r.sleep()
 
         twist = Twist()  
         self.cmd_vel.publish(Twist())
