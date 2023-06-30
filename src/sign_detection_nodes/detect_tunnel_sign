@@ -62,7 +62,7 @@ class DetectSign():
         self.sift = cv2.SIFT_create()
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        dir_path = dir_path.replace('robotics-final-project/src/sign_detection_nodes', 'robotics-final-project/')
+        dir_path = dir_path.replace('robotics_final_project/src/sign_detection_nodes', 'robotics_final_project/')
         dir_path += 'image/'
 
         self.img_tunnel = cv2.imread(dir_path + 'tunnel.png',0)       # trainImage3

@@ -21,7 +21,7 @@
  
 import rospy
 import numpy as np
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64,UInt8
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
@@ -34,6 +34,22 @@ class ControlLane():
         self.sub_max_vel = rospy.Subscriber('/control/max_vel', Float64, self.cbGetMaxVel, queue_size = 1)
         self.pub_cmd_vel = rospy.Publisher('/control/cmd_vel', Twist, queue_size = 1)
         self.FORWARD, self.AHEAD, self.ROTATE_LEFT, self.ROTATE_RIGHT = 0, 1, 2, 3 
+
+
+
+        self.sub_construction = rospy.Subscriber('/detect/traffic_sign/construction', UInt8, self.cons_callback, queue_size = 1)
+        self.sub_parking = rospy.Subscriber('/detect/traffic_sign/parking', UInt8, self.parking_callback, queue_size = 1)
+        self.sub_intersection = rospy.Subscriber('/detect/traffic_sign/crossing', UInt8, self.crossing_callback, queue_size = 1)
+
+        
+        self.construction_flag = 0
+        self.construction_action = 0
+        self.parking_flag = 0
+        self.parking_action = 0
+        self.crossing_flag = 0
+        self.crossing_action = 0
+        
+        self.counter = 0
         self.lastError = 0
         self.MAX_VEL = 0.1
         self.state = self.FORWARD
@@ -47,6 +63,21 @@ class ControlLane():
 
     def cbGetMaxVel(self, max_vel_msg):
         self.MAX_VEL = max_vel_msg.data
+
+    def cons_callback(self, msg):
+        if msg.data == 1:
+            self.construction_flag = 0
+            rospy.loginfo("cons_callback")
+
+    def parking_callback(self, msg):
+        if msg.data == 1:
+            self.parking_flag = 1
+            rospy.loginfo("parking_callback")
+    
+    def crossing_callback(self, msg):
+        if msg.data == 1:
+            self.crossing_flag = 1
+            rospy.loginfo("crossing_callback")
 
     def laser_dist_calc(self):
         laser_data = rospy.wait_for_message("/scan",LaserScan)
@@ -160,6 +191,7 @@ class ControlLane():
         while (not rospy.is_shutdown()):
             self.laser_dist_calc()            
             if self.state == self.FORWARD:
+
                 self.last_state = self.FORWARD
                 rospy.loginfo("FORWARD")
                 center = self.center
@@ -171,13 +203,70 @@ class ControlLane():
                 angular_z = Kp * error + Kd * (error - self.lastError)
                 self.lastError = error
                 twist = Twist()
-                twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.05)
-                twist.linear.y = 0
-                twist.linear.z = 0
-                twist.angular.x = 0
-                twist.angular.y = 0
-                twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
-                self.pub_cmd_vel.publish(twist)
+                rospy.loginfo("flag_parking" + str(self.parking_flag))
+                if self.construction_flag == 1 and self.construction_action == 0:
+                    twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 1000) ** 2.2), 0.02)  
+                    twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
+                    self.counter += 1 
+                    if self.counter >= 300:
+                        self.construction_flag = 0
+                        self.counter = 0
+                        self.construction_action = 1
+                        self.parking_action = 0
+                        self.crosing_action = 0
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+
+
+                elif self.parking_flag == 1 and self.parking_action == 0:
+                    twist.linear.x = 0  
+                    twist.angular.z = 0
+                    self.counter += 1 
+                    rospy.loginfo("counter: " + str(self.counter))
+                    if self.counter >= 100:
+                        self.parking_flag = 0
+                        self.counter = -1
+                        self.construction_action = 0
+                        self.parking_action = 1
+                        self.crosing_action = 0
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+
+                elif self.crossing_flag == 1 and self.crossing_action == 0:
+                    twist.linear.x = 0  
+                    twist.angular.z = 0
+                    self.counter += 1 
+                    if self.counter >= 30:
+                        self.crossing_flag = 0
+                        self.counter = 0
+                        self.construction_action = 0
+                        self.parking_action = 0
+                        self.crosing_action = 1
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+                else:
+                    twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.05)  
+                    twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+
+                
+
                 if self.heading_dist <= 0.3 and (str(self.right_dist) == 'inf' or self.right_dist > 0.9):
                     self.state = self.ROTATE_LEFT
                     self.last_state = self.FORWARD

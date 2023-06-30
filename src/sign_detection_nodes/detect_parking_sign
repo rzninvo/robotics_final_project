@@ -44,7 +44,7 @@ class DetectSign():
             self.sub_image_original = rospy.Subscriber('/detect/image_input', Image, self.cbFindTrafficSign, queue_size = 1)
 
         # publishes
-        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt8, queue_size=1)
+        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign/parking', UInt8, queue_size=1)
 
         if self.pub_image_type == "compressed":
             # publishes traffic sign image in compressed type 
@@ -62,7 +62,7 @@ class DetectSign():
         self.sift = cv2.SIFT_create()
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        dir_path = dir_path.replace('robotics-final-project/src/sign_detection_nodes', 'robotics-final-project/')
+        dir_path = dir_path.replace('robotics_final_project/src/sign_detection_nodes', 'robotics_final_project/')
         dir_path += 'image/'
 
         self.img_parking = cv2.imread(dir_path + 'parking.png',0)      # trainImage2   
