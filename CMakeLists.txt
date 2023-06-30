@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   message_generation
   turtlebot3_autorace_msgs
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -89,10 +90,11 @@ generate_messages(
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_dynamic_reconfigure_options(
+  cfg/DetectLaneParams.cfg
+  cfg/DetectLevelParams.cfg
+  cfg/DetectTrafficLightParams.cfg
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -106,7 +108,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES turtlebot3_object_tracker
- CATKIN_DEPENDS geometry_msgs rospy sensor_msgs turtlebot3_autorace_msgs
+ CATKIN_DEPENDS geometry_msgs rospy sensor_msgs turtlebot3_autorace_msgs dynamic_reconfigure
 #  DEPENDS system_lib
 )
 
@@ -162,10 +164,15 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/control_lane
+  src/sign_detection_nodes/detect_construction_sign
+  src/sign_detection_nodes/detect_intersection_sign
+  src/sign_detection_nodes/detect_level_crossing_sign
+  src/sign_detection_nodes/detect_parking_sign
+  src/sign_detection_nodes/detect_tunnel_sign
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(DIRECTORY launch
+install(DIRECTORY cfg image launch param
 	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
