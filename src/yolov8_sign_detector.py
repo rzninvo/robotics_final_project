@@ -41,11 +41,11 @@ class Sign_Detector():
 
 
     def camera_listener(self, msg: Image):
-        if self.counter % 3 != 0:
-            self.counter += 1
-            return
-        else:
-            self.counter = 1
+        # if self.counter % 3 != 0:
+        #     self.counter += 1
+        #     return
+        # else:
+        #     self.counter = 1
 
         # Convert binary image data to  cv image
         cv_image_input = self.cvBridge.imgmsg_to_cv2(msg, "bgr8")
@@ -67,24 +67,26 @@ class Sign_Detector():
 
     def detect_sign(self):
         result = self.results[0]
-        top5_predictions = []
-        if result.probs == None:
-            return 
-        for class_id in result.probs.top5:
-            top5_predictions.append(result.names[class_id])
-        if "Stop_Sign" in top5_predictions:
+        
+        box_data = {}
+
+        for box in result.boxes:
+            class_id = box.cls[0].item()
+            box_data[result.names[class_id]] = 1
+
+        if "Stop_Sign" in box_data:
             msg_sign = UInt8()
             msg_sign.data = 1
             self.pub_stop_sign.publish(msg_sign)
             rospy.loginfo("stop_sign")
             return
-        elif "Pedestrian_Crossing" in top5_predictions:
+        elif "Pedestrian_Crossing" in box_data:
             msg_sign = UInt8()
             msg_sign.data = 1
             self.pub_pedestrian_crossing.publish(msg_sign)
             rospy.loginfo("perestrian_crossing")
             return
-        elif "Beware of children" in top5_predictions:
+        elif "Beware of children" in box_data:
             msg_sign = UInt8()
             msg_sign.data = 1
             self.pub_beware_of_children.publish(msg_sign)

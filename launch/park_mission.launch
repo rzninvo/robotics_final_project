@@ -1,22 +1,4 @@
 <launch>
-  <env name="GAZEBO_RESOURCE_PATH" value="$(find turtlebot3_gazebo)/models/autorace/ground_picture" />
-
-  <arg name="x_pos" default="0.8"/>
-  <arg name="y_pos" default="-1.747"/>
-  <arg name="z_pos" default="0"/>  
-
-  <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find robotics_final_project)/worlds/turtlebot3_yolo_autorace_2020.world" />
-    <arg name="paused" value="false"/>
-    <arg name="use_sim_time" value="true"/>
-    <arg name="gui" value="true"/>
-    <arg name="headless" value="false"/>
-    <arg name="debug" value="false"/>
-  </include>  
-
-  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_burger_for_autorace_2020.urdf.xacro" />
-  <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" args="-urdf -model autorace -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
-   
   <group>
     <!-- image transport from compressed to raw -->
     <node pkg="image_transport" type="republish" name="republish" args="compressed">
@@ -91,17 +73,40 @@
   <!-- launch turtlebot3_autorace_detect_lane.launch before launch this file -->
 
   <!-- lane control -->
-  <node pkg="robotics_final_project" type="yolo_control_lane" name="yolo_control_lane" output="screen">
+  <node pkg="robotics_final_project" type="control_lane" name="control_lane" output="screen">
     <remap from="/control/lane" to="/detect/lane" />
     <remap from="/control/cmd_vel" to="/cmd_vel" />
   </node>
 
-  <!-- yolo traffic sign detection -->
-    <node pkg="robotics_final_project" type="yolov8_sign_detector.py" name="yolo_sing_detector" output="screen">    
+  <!-- traffic sign detection -->
+  <arg name="mission" default="intersection" doc="mission type [intersection, construction, parking, level_crossing, tunnel]"/>
+  
+    <node pkg="robotics_final_project" type="detect_intersection_sign" name="detect_intersection_sign" output="screen">
       <remap from="/detect/image_input" to="/camera/image_compensated" />
       <remap from="/detect/image_input/compressed" to="/camera/image_compensated/compressed" />
-      <remap from="/detect/image_output" to="/yolo_detect/image_traffic_sign" />
-      <remap from="/detect/image_output/compressed" to="/yolo_detect/image_traffic_sign/compressed" /> 
+      <remap from="/detect/image_output" to="/detect/image_traffic_sign" />
+      <remap from="/detect/image_output/compressed" to="/detect/image_traffic_sign/compressed" />    
+    </node>
+
+    <node pkg="robotics_final_project" type="detect_construction_sign" name="detect_construction_sign" output="screen">
+      <remap from="/detect/image_input" to="/camera/image_compensated" />
+      <remap from="/detect/image_input/compressed" to="/camera/image_compensated/compressed" />
+      <remap from="/detect/image_output" to="/detect/image_traffic_sign" />
+      <remap from="/detect/image_output/compressed" to="/detect/image_traffic_sign/compressed" />    
+    </node>    
+
+    <node pkg="robotics_final_project" type="detect_parking_sign" name="detect_parking_sign" output="screen">
+      <remap from="/detect/image_input" to="/camera/image_compensated" />
+      <remap from="/detect/image_input/compressed" to="/camera/image_compensated/compressed" />
+      <remap from="/detect/image_output" to="/detect/image_traffic_sign" />
+      <remap from="/detect/image_output/compressed" to="/detect/image_traffic_sign/compressed" />    
+    </node>
+
+    <node pkg="robotics_final_project" type="detect_level_crossing_sign" name="detect_level_crossing_sign" output="screen">
+      <remap from="/detect/image_input" to="/camera/image_compensated" />
+      <remap from="/detect/image_input/compressed" to="/camera/image_compensated/compressed" />
+      <remap from="/detect/image_output" to="/detect/image_traffic_sign" />
+      <remap from="/detect/image_output/compressed" to="/detect/image_traffic_sign/compressed" />    
     </node>
 
 </launch>

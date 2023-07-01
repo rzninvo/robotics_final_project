@@ -164,6 +164,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/control_lane
+  src/yolo_control_lane
   src/sign_detection_nodes/detect_construction_sign
   src/sign_detection_nodes/detect_intersection_sign
   src/sign_detection_nodes/detect_level_crossing_sign
