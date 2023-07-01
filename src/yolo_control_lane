@@ -1,0 +1,352 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+################################################################################
+# Copyright 2018 ROBOTIS CO., LTD.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+# Author: Leon Jung, Gilbert, Ashe Kim
+ 
+import rospy
+import numpy as np
+from std_msgs.msg import Float64,UInt8
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
+import tf
+import math
+
+class YOLOControlLane():
+    def __init__(self):
+        self.sub_lane = rospy.Subscriber('/control/lane', Float64, self.cbFollowLane, queue_size = 1)
+        self.sub_max_vel = rospy.Subscriber('/control/max_vel', Float64, self.cbGetMaxVel, queue_size = 1)
+        self.pub_cmd_vel = rospy.Publisher('/control/cmd_vel', Twist, queue_size = 1)
+        self.FORWARD, self.AHEAD, self.ROTATE_LEFT, self.ROTATE_RIGHT = 0, 1, 2, 3 
+
+
+
+        self.sub_stop_sign = rospy.Subscriber('/detect/traffic_sign/stop_sign', UInt8, self.stop_sign_callback, queue_size = 1)
+        self.sub_ped_crs = rospy.Subscriber('/detect/traffic_sign/pedestrian_crossing', UInt8, self.ped_callback, queue_size = 1)
+        self.sub_children = rospy.Subscriber('/detect/traffic_sign/beware_of_children', UInt8, self.children_callback, queue_size = 1)
+
+        
+        self.stop_sign_flag = 0
+        self.stop_sign_action = 0
+        self.ped_crs_flag = 0
+        self.ped_crs_action = 0
+        self.children_flag = 0
+        self.children_action = 0
+        
+        self.counter = 0
+        self.lastError = 0
+        self.MAX_VEL = 0.1
+        self.state = self.FORWARD
+        self.flag_rotate = 0
+        self.heading_dist = 0
+        self.first_heading = 0
+        self.center = 0
+        self.last_state = 0
+        self.ranges = []
+        rospy.on_shutdown(self.fnShutDown)
+
+    def cbGetMaxVel(self, max_vel_msg):
+        self.MAX_VEL = max_vel_msg.data
+
+    def children_callback(self, msg):
+        if msg.data == 1:
+            self.children_flag = 0
+            rospy.loginfo("children_callback")
+
+    def stop_sign_callback(self, msg):
+        if msg.data == 1:
+            self.stop_sign_flag = 1
+            rospy.loginfo("stop_sign_callback")
+    
+    def ped_callback(self, msg):
+        if msg.data == 1:
+            self.ped_crs_flag = 1
+            rospy.loginfo("ped_crs_callback")
+
+    def laser_dist_calc(self):
+        laser_data = rospy.wait_for_message("/scan",LaserScan)
+        self.heading_dist = min(min(laser_data.ranges[:10]),min(laser_data.ranges[350:360]))
+        self.right_dist = min(laser_data.ranges[215:300])
+        self.left_dist = min(laser_data.ranges[60:120])
+        self.ranges = laser_data.ranges
+
+    def get_heading(self):
+        msg = rospy.wait_for_message("/odom",Odometry)
+        orientation = msg.pose.pose.orientation
+        roll, pitch, yaw = tf.transformations.euler_from_quaternion((orientation.x, orientation.y, orientation.z, orientation.w))
+        return math.degrees(yaw)
+
+
+    def cbFollowLane(self, desired_center):
+        center = desired_center.data
+        self.center = center
+        '''self.laser_dist_calc()
+        
+        if self.heading_dist >= 0.4:
+            center = desired_center.data
+            rospy.loginfo("not_inf => center = " + str(center))
+            rospy.loginfo("right_inf => right = " + str(self.right_dist))
+            rospy.loginfo("left_inf => left = " + str(self.left_dist))
+            rospy.loginfo("***************************************")
+            if self.right_dist <= 0.2 and self.left_dist <= 0.2:
+                center = 500
+        else:
+            rospy.loginfo("right_inf => right = " + str(self.right_dist))
+            rospy.loginfo("left_inf => left = " + str(self.left_dist))
+            rospy.loginfo("***************************************")
+            if(str(self.right_dist) == 'inf'or self.right_dist >= 0.9):
+                center = 500 - (1 / ((self.heading_dist + 0.2) * 0.02))
+                #rospy.loginfo("right_inf => center = " + str(center))
+            elif (str(self.left_dist) == 'inf' or self.left_dist >= 0.9):
+                center = 500 + (1 / ((self.heading_dist + 0.2) * 0.02))
+                #rospy.loginfo("left_inf => center = " + str(center))'''
+            
+            
+        
+        '''error = center - 500
+
+        Kp = 0.0025
+        Kd = 0.007
+
+        angular_z = Kp * error + Kd * (error - self.lastError)
+        self.lastError = error
+        
+        twist = Twist()
+        #twist.linear.x = 1      
+        twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.05)
+        twist.linear.y = 0
+        twist.linear.z = 0
+        twist.angular.x = 0
+        twist.angular.y = 0
+        twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
+        self.pub_cmd_vel.publish(twist)
+
+        if self.heading_dist < 0.4 and (self.right_dist < 0.3 or self.left_dist < 0.3):
+            self.flag_rotate = 1
+            self.first_heading = self.get_heading()
+                #if self.flag_rotate == 1 :
+            center = desired_center.data - (1 / (self.heading_dist * 0.05))
+            error = center - 500
+            if abs(self.get_heading() - first_heading) > 60:
+                self.flag = 1
+            
+            Kp = 0.0025
+            Kd = 0.007
+            if str(self.right_dist) == 'inf':
+                angular_z = 0.15
+            elif str(self.left_dist) == 'inf':
+                angular_z = -0.15
+            twist = Twist()
+            #twist.linear.x = 1      
+            twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.02)
+            twist.linear.y = 0
+            twist.linear.z = 0
+            twist.angular.x = 0
+            twist.angular.y = 0
+            twist.angular.z = angular_z
+            self.pub_cmd_vel.publish(twist)'''
+            
+        
+    def fnShutDown(self):
+        rospy.loginfo("Shutting down. cmd_vel will be 0")
+
+        twist = Twist()
+        twist.linear.x = 0
+        twist.linear.y = 0
+        twist.linear.z = 0
+        twist.angular.x = 0
+        twist.angular.y = 0
+        twist.angular.z = 0
+        self.pub_cmd_vel.publish(twist) 
+
+    def object_detection(self):
+        counter = 0
+        for i in range(45):
+            if str(self.ranges[i]) != 'inf':
+                counter += 1
+            if str(self.ranges[359-i]) != 'inf':
+                counter += 1
+        return counter
+
+
+    def main(self):
+        #rospy.spin()
+        
+        while (not rospy.is_shutdown()):
+            self.laser_dist_calc()            
+            if self.state == self.FORWARD:
+
+                self.last_state = self.FORWARD
+                rospy.loginfo("FORWARD")
+                center = self.center
+                error = center - 500
+
+                Kp = 0.0025
+                Kd = 0.007
+
+                angular_z = Kp * error + Kd * (error - self.lastError)
+                self.lastError = error
+                twist = Twist()
+                rospy.loginfo("flag_parking" + str(self.stop_sign_flag))
+                if self.stop_sign_flag == 1 and self.stop_sign_action == 0:
+                    twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 1000) ** 2.2), 0.02)  
+                    twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
+                    self.counter += 1 
+                    if self.counter >= 300:
+                        self.stop_sign_flag = 0
+                        self.counter = 0
+                        self.stop_sign_action = 1
+                        self.children_action = 0
+                        self.ped_crs_action = 0
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+
+
+                elif self.ped_crs_flag == 1 and self.ped_crs_action == 0:
+                    twist.linear.x = 0  
+                    twist.angular.z = 0
+                    self.counter += 1 
+                    rospy.loginfo("counter: " + str(self.counter))
+                    if self.counter >= 100:
+                        self.ped_crs_flag = 0
+                        self.counter = -1
+                        self.stop_sign_action = 0
+                        self.ped_crs_action = 1
+                        self.children_action = 0
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+
+                elif self.children_flag == 1 and self.children_action == 0:
+                    twist.linear.x = 0  
+                    twist.angular.z = 0
+                    self.counter += 1 
+                    if self.counter >= 30:
+                        self.children_flag = 0
+                        self.counter = 0
+                        self.stop_sign_action = 0
+                        self.ped_crs_action = 0
+                        self.children_action = 1
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+                    
+                else:
+                    twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.05)  
+                    twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
+                    twist.linear.y = 0
+                    twist.linear.z = 0
+                    twist.angular.x = 0
+                    twist.angular.y = 0
+                    self.pub_cmd_vel.publish(twist)
+
+                
+
+                if self.heading_dist <= 0.3 and (str(self.right_dist) == 'inf' or self.right_dist > 0.9):
+                    self.state = self.ROTATE_LEFT
+                    self.last_state = self.FORWARD
+                elif self.heading_dist <= 0.3 and (str(self.left_dist) == 'inf' or self.left_dist > 0.9):
+                    self.state = self.ROTATE_RIGHT
+                    self.last_state = self.FORWARD
+                else:
+                    self.state = self.FORWARD
+
+            if self.state == self.ROTATE_LEFT:
+                rospy.loginfo("ROTATE_LEFT")
+                heading = self.get_heading()
+                while abs(self.get_heading() - heading) <= 45:
+                    twist = Twist()
+                    twist.angular.z = 0.08
+                    self.pub_cmd_vel.publish(twist)
+                self.state = self.AHEAD
+                self.last_state = self.ROTATE_LEFT
+                rospy.loginfo(str(self.state))
+                twist = Twist()
+                self.pub_cmd_vel.publish(twist)
+                
+            
+            if self.state == self.AHEAD:
+                rospy.loginfo("AHEAD")
+                rospy.loginfo("last_state: " + str(self.last_state))
+                self.lastErorr = self.right_dist
+                min_right_angle = self.ranges.index(min(self.ranges[240:300]))
+                min_left_angle = self.ranges.index(min(self.ranges[60:120]))
+                rospy.loginfo("min_right_angle: " + str(min_right_angle))
+                tmp_list_right = list(range(258,272))
+                tmp_list_left = list(range(78,100))
+                if (min_right_angle in tmp_list_right and self.last_state == self.ROTATE_LEFT) or (min_left_angle in tmp_list_left and self.last_state == self.ROTATE_RIGHT):
+                    self.state = self.FORWARD
+                    self.last_state = self.AHEAD
+                twist = Twist()
+                twist.linear.x = 0.05
+                twist.linear.y = 0
+                twist.linear.z = 0
+                twist.angular.x = 0
+                twist.angular.y = 0
+                twist.angular.z = 0
+                self.pub_cmd_vel.publish(twist)
+            
+            if self.state == self.ROTATE_RIGHT:
+                rospy.loginfo("ROTATE_RIGHT")
+                heading = self.get_heading()
+                while abs(self.get_heading() - heading) <= 45:
+                    twist = Twist()
+                    twist.angular.z = -0.08
+                    self.pub_cmd_vel.publish(twist)
+                self.state = self.AHEAD
+                self.last_state = self.ROTATE_RIGHT
+                rospy.loginfo(str(self.state))
+                twist = Twist()
+                self.pub_cmd_vel.publish(twist)
+
+            '''if self.heading_dist >= 0.5:
+                center = self.center
+                rospy.loginfo("not_inf => center = " + str(center))
+                rospy.loginfo("right_inf => right = " + str(self.right_dist))
+                rospy.loginfo("left_inf => left = " + str(self.left_dist))
+                rospy.loginfo("***************************************")
+                if self.right_dist <= 0.4 and self.left_dist <= 0.4 and self.heading_dist >= 1:
+                    center = 500
+            elif self.heading_dist <= 0.5 and is_object < 75:
+                rospy.loginfo("right_inf => right = " + str(self.right_dist))
+                rospy.loginfo("left_inf => left = " + str(self.left_dist))
+                rospy.loginfo("***************************************")
+                if(str(self.right_dist) == 'inf'or self.right_dist >= 0.9):
+                    center = 500 - (1 / ((self.heading_dist + 0.2) * 0.03))
+                #rospy.loginfo("right_inf => center = " + str(center))
+                elif (str(self.left_dist) == 'inf' or self.left_dist >= 0.9):
+                    center = 500 + (1 / ((self.heading_dist + 0.2) * 0.03))
+                #rospy.loginfo("left_inf => center = " + str(center))'''
+        
+            
+
+
+if __name__ == '__main__':
+    rospy.init_node('yolo_control_lane')
+    node = YOLOControlLane()
+    node.main()

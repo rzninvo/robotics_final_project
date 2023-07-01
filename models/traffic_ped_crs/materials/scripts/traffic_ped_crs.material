@@ -1,0 +1,14 @@
+material traffic_ped_crs
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture traffic_ped_crs.png
+      }
+    }
+  }
+}
+

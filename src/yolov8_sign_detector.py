@@ -26,11 +26,11 @@ class Sign_Detector():
         self.result: Results = None
 
         # publishes
-        self.pub_construction_sign = rospy.Publisher('/detect/traffic_sign/construction', UInt8, queue_size=1)
-        self.pub_intersection_sign = rospy.Publisher('/detect/traffic_sign/intersection', UInt8, queue_size=1)
-        self.pub_crossing_sign = rospy.Publisher('/detect/traffic_sign/crossing', UInt8, queue_size=1)
-        self.pub_parking_sign = rospy.Publisher('/detect/traffic_sign/parking', UInt8, queue_size=1)
-        self.pub_tunnel_sign = rospy.Publisher('/detect/traffic_sign', UInt8, queue_size=1)
+        self.pub_stop_sign = rospy.Publisher('/detect/traffic_sign/stop_sign', UInt8, queue_size=1)
+        self.pub_pedestrian_crossing = rospy.Publisher('/detect/traffic_sign/pedestrian_crossing', UInt8, queue_size=1)
+        #self.pub_crossing_sign = rospy.Publisher('/detect/traffic_sign/crossing', UInt8, queue_size=1)
+        self.pub_beware_of_children = rospy.Publisher('/detect/traffic_sign/beware_of_children', UInt8, queue_size=1)
+        #self.pub_tunnel_sign = rospy.Publisher('/detect/traffic_sign', UInt8, queue_size=1)
 
         self.cvBridge = CvBridge()
         self.counter = 1
@@ -63,30 +63,30 @@ class Sign_Detector():
         top5_predictions = []
         for class_id in result.probs.top5:
             top5_predictions.append(result.names[class_id])
-        if "stop_sign" in top5_predictions:
+        if "Stop_Sign" in top5_predictions:
             msg_sign = UInt8()
             msg_sign.data = 1
-            self.pub_construction_sign.publish(msg_sign)
+            self.pub_stop_sign.publish(msg_sign)
             rospy.loginfo("stop_sign")
             return
-        elif "park_sign" in top5_predictions:
+        elif "Pedestrian_Crossing" in top5_predictions:
             msg_sign = UInt8()
             msg_sign.data = 1
-            self.pub_parking_sign.publish(msg_sign)
-            rospy.loginfo("park_sign")
+            self.pub_pedestrian_crossing.publish(msg_sign)
+            rospy.loginfo("perestrian_crossing")
             return
-        elif "something_sign" in top5_predictions:
+        elif "Beware of children" in top5_predictions:
             msg_sign = UInt8()
             msg_sign.data = 1
-            self.pub_parking_sign.publish(msg_sign)
-            rospy.loginfo("something_sign")
+            self.pub_beware_of_children.publish(msg_sign)
+            rospy.loginfo("beware of children")
             return
-        elif "turn_right" in top5_predictions:
-            msg_sign = UInt8()
-            msg_sign.data = 1
-            self.pub_image_traffic_sign.publish(msg_sign)
-            rospy.loginfo("turn_right")
-            return
+        # elif "turn_right" in top5_predictions:
+        #     msg_sign = UInt8()
+        #     msg_sign.data = 1
+        #     self.pub_image_traffic_sign.publish(msg_sign)
+        #     rospy.loginfo("turn_right")
+        #     return
             
     def main(self):
         rospy.spin()

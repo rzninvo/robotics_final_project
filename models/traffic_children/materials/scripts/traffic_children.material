@@ -1,0 +1,14 @@
+material traffic_children
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture traffic_children.png
+      }
+    }
+  }
+}
+
