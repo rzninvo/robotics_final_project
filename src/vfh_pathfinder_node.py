@@ -79,12 +79,12 @@ class VFHPathFinder:
     def calculate_rotation_error(self, rotation_goal):
         heading = self.get_heading()
         if (rotation_goal <= math.radians(180)):
-            if (rotation_goal <= math.radians(135)):
+            if (rotation_goal <= math.radians(90)):
                 alpha_rotation = rotation_goal
             else:
                 alpha_rotation = 0#rotation_goal * 0.002
         else:
-            if (rotation_goal >= math.radians(225)):
+            if (rotation_goal >= math.radians(270)):
                 alpha_rotation = rotation_goal
             else:
                 alpha_rotation = 0#rotation_goal * 0.002
