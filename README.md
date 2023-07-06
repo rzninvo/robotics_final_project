@@ -30,17 +30,23 @@ This node acts as the control node, while having a proxy to the `vfh_planner_ser
 
 ### How do I build this?
 1. Install the requirements.
-2. Clone this package beside your `turtlebot3` packages.
+2. Clone this package beside your `turtlebot3` packages:   
+```console
+foo@bar:~/catkin/src$ git clone https://github.com/rzninvo/robotics_final_project.git
+```
 3. Navigate to the root directory of your `catkin` workspace.
-4. Do `catkin_make`.
+4. Do `catkin_make`:   
+```console
+foo@bar:~/catkin$ catkin_make
+```
 
 ### How do I run this?
 1. Navigate to the root directory of your `catkin` workspace.
 2. Source your workspace:   
 ```console
-foo@bar:~/catkin/$ . devel/setup.bash
+foo@bar:~/catkin$ . devel/setup.bash
 ```
 3. Launch the provided launch file:   
 ```console
-foo@bar:~/catkin/$ roslaunch robotics_final_project vfh_planning.launch
+foo@bar:~/catkin$ roslaunch robotics_final_project vfh_planning.launch
 ```
