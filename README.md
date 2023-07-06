@@ -8,6 +8,18 @@ The final project of the Robotics course. A robot has to find it's way out of a 
 - [ultralytics](https://docs.ultralytics.com/)
 - [opencv-python](https://pypi.org/project/opencv-python/)
 
+## How do I build this?
+1. Install the requirements.
+2. Clone this package beside your `turtlebot3` packages:   
+```console
+foo@bar:~/catkin/src$ git clone https://github.com/rzninvo/robotics_final_project.git
+```
+3. Navigate to the root directory of your `catkin` workspace.
+4. Do `catkin_make`:   
+```console
+foo@bar:~/catkin$ catkin_make
+```
+
 ## First Phase: The VFH Pathfinding Algorithm
 In this phase, our goal is to implement *pathfinding* and *obstacle avoidance* using the **Vector Field Histogram** (VFH) algorithm. The robot (which is a `turtlebot3` robot) should start at the starting position of $(0, 0)$ in the world of `updated_maze.world` located in the [/worlds](https://github.com/rzninvo/robotics_final_project/tree/main/worlds) folder. The objective of this robot is to avoid all the obstacles in the maze and find it's way to the end of the maze which is at the goal position of $(13, 7)$.   
 This package implements the VFH Algorithm based on [this paper](http://www-personal.umich.edu/~ykoren/uploads/The_Vector_Field_HistogramuFast_Obstacle_Avoidance.pdf).
@@ -28,18 +40,6 @@ This node acts as a service node, plotting the **Polar Density Histogram** of th
 2. **The [VFH Pathfinder Node](https://github.com/rzninvo/robotics_final_project/blob/main/src/vfh_pathfinder_node.py):**   
 This node acts as the control node, while having a proxy to the `vfh_planner_service` and feeding on it's calculated output angle and $h_c$. This calculated output angle acts as the error of a **PID** control for the angular velocity of our robot. The output $h_c$ acts as the control for the robot's linear velocity based on the VFH paper.
 
-### How do I build this?
-1. Install the requirements.
-2. Clone this package beside your `turtlebot3` packages:   
-```console
-foo@bar:~/catkin/src$ git clone https://github.com/rzninvo/robotics_final_project.git
-```
-3. Navigate to the root directory of your `catkin` workspace.
-4. Do `catkin_make`:   
-```console
-foo@bar:~/catkin$ catkin_make
-```
-
 ### How do I run this?
 1. Navigate to the root directory of your `catkin` workspace.
 2. Source your workspace:   
@@ -52,3 +52,46 @@ foo@bar:~/catkin$ roslaunch robotics_final_project vfh_planning.launch
 ```
 ### Expected Output Video
 https://github.com/rzninvo/robotics_final_project/assets/46872428/83dc836a-6b52-4877-9692-21dd4a4db227
+
+## Second Phase: Autorace Lane Detection and Traffic Sign Detection
+In this phase, we have implemented a robot which can detect roads, follow the road lane, detect traffic signs, and act according to the traffic sign.
+
+### First Part: Lane Detection
+Based on the documentation provided in [this link](https://emanual.robotis.com/docs/en/platform/turtlebot3/autonomous_driving/#lane-detection), we have used the `detect_lane` node to detect the road line and move alongside it. However there are obstacles in the robot's road path and the robot should avoid hitting these obstacles.   
+To achieve this, we have edited the `control_lane` node located at `turtlebot3_autorace_2020/turtlebot3_autorace_detect/nodes/control_lane` and have made our ['control_lane'](https://github.com/rzninvo/robotics_final_project/blob/main/src/control_lane) version of this node. 
+
+### How do I run this?
+1. Navigate to the root directory of your `catkin` workspace.
+2. Source your workspace:   
+```console
+foo@bar:~/catkin$ . devel/setup.bash
+```
+3. Launch the provided launch file:   
+```console
+foo@bar:~/catkin$ roslaunch robotics_final_project lane_detection.launch
+```
+
+### **Note**
+In order to launch this section correctly, you should replace your `detect_node` file located at the `turtlebot3_autorace_2020/turtlebot3_autorace_detect/nodes/detect_lane` path with the provided [`detect_node`](https://github.com/rzninvo/robotics_final_project/blob/main/src/detect_lane) file.   
+
+### Second Part: Traffic Sign Detection
+Now that the robot can follow the road line, it should also be able to detect the traffic signs and act upon them. The documentation provided in [this link](https://emanual.robotis.com/docs/en/platform/turtlebot3/autonomous_driving/) uses the `SIFT Algorithm` to detect traffic signs. We have tweaked some of the detection nodes provided by this package and have came up with the four detection nodes located at [here](https://github.com/rzninvo/robotics_final_project/tree/main/src/sign_detection_nodes).
+After tweaking the nodes to publish to our desired **topics**, we also tweaked the existing `control_lane` in our package to act upon any detection of traffic signs. 
+
+### How do I run this?
+1. Navigate to the root directory of your `catkin` workspace.
+2. Source your workspace:   
+```console
+foo@bar:~/catkin$ . devel/setup.bash
+```
+
+3. Launch the provided launch file:   
+```console
+foo@bar:~/catkin$ roslaunch robotics_final_project traffic_sign_detection.launch
+```
+
+### **Note**
+In order to launch this section correctly, you should replace your `detect_node` file located at the `turtlebot3_autorace_2020/turtlebot3_autorace_detect/nodes/detect_lane` path with the provided [`detect_node`](https://github.com/rzninvo/robotics_final_project/blob/main/src/detect_lane) file.   
+
+### Expected Output Video
+https://github.com/rzninvo/robotics_final_project/assets/46872428/6202c462-e4f5-4cee-8fce-918a1f095a73
