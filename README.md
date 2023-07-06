@@ -50,3 +50,5 @@ foo@bar:~/catkin$ . devel/setup.bash
 ```console
 foo@bar:~/catkin$ roslaunch robotics_final_project vfh_planning.launch
 ```
+### Expected Output Video
+https://github.com/rzninvo/robotics_final_project/assets/46872428/83dc836a-6b52-4877-9692-21dd4a4db227
