@@ -20,7 +20,7 @@ $c_\theta = |\frac{d}{ws} - 1|$
 Where $c_\theta$ is the confidence of the corresponding laser reading angle, $d$ is the laser reading distance, and $ws$ is our window size.   
 This formula makes it so that the nearest object to the robot is close to $1$ and the farthest object in the **Active Window** is close to $0.5$. This formula has proven to have a better **Polar Density Histogram** than setting it to the default confidence of $1$ for every reading in the **Active Window**.
 3. **Filtering out certain angles**:   
-In some situations where there is no possible **Candidate Valley** other than the angles between $(135\degree, 225\degree)$, the robot would choose these valleys as it's nearest valley to the target and attempt to make a $180\degree$ turn. To avoid these situations, we have filterd out the aforementioned angles and don't recognize them as candidate valleys.
+In some situations where there is no possible **Candidate Valley** other than the angles between $(135\degree, 225\degree)$, the robot would choose these valleys as it's nearest valley to the target and attempt to make a $180\degree$ turn. To avoid these situations, we have filtered out the aforementioned angles and don't recognize them as candidate valleys.
 
 ### Components
 1. **The [VFH Algorithm Node](https://github.com/rzninvo/robotics_final_project/blob/main/src/vfh_algorithm_node.py):**   
