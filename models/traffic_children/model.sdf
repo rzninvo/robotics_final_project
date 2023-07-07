@@ -19,8 +19,8 @@
         </geometry>
         <material>
           <script>
-            <uri>model://robotics_final_project/traffic_children/materials/scripts</uri>
-            <uri>model://robotics_final_project/traffic_children/materials/textures</uri>
+            <uri>model://turtlebot3_autorace_2020/traffic_children/materials/scripts</uri>
+            <uri>model://turtlebot3_autorace_2020/traffic_children/materials/textures</uri>
             <name>traffic_children</name>
           </script>
         </material>

@@ -1,0 +1,14 @@
+material traffic_warning
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture traffic_warning.png
+      }
+    }
+  }
+}
+

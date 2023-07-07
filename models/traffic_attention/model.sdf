@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
-  <model name="traffic_ped_crs">
+  <model name="traffic_attention">
     <static>true</static>
     <link name="box">
       <pose>0 0 0 0 0 0</pose>
@@ -19,9 +19,9 @@
         </geometry>
         <material>
           <script>
-            <uri>model://turtlebot3_autorace_2020/traffic_ped_crs/materials/scripts</uri>
-            <uri>model://turtlebot3_autorace_2020/traffic_ped_crs/materials/textures</uri>
-            <name>traffic_ped_crs</name>
+            <uri>model://turtlebot3_autorace_2020/traffic_attention/materials/scripts</uri>
+            <uri>model://turtlebot3_autorace_2020/traffic_attention/materials/textures</uri>
+            <name>traffic_attention</name>
           </script>
         </material>
       </visual>

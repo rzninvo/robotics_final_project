@@ -26,7 +26,7 @@ class Sign_Detector():
         # subscribes raw image
         self.sub_image_original = rospy.Subscriber('/detect/image_input', Image, self.camera_listener, queue_size = 1)
         # publishes traffic sign image in compressed type 
-        self.pub_image_traffic_sign = rospy.Publisher('/detect/image_output/compressed', CompressedImage, queue_size = 1)
+        self.pub_image_traffic_sign = rospy.Publisher('/detect/image_output', Image, queue_size = 1)
         self.results: Results = None
 
         # publishes
@@ -40,7 +40,7 @@ class Sign_Detector():
         self.counter = 1
 
 
-    def camera_listener(self, msg: Image):
+    def camera_listener(self, msg):
         # if self.counter % 3 != 0:
         #     self.counter += 1
         #     return
@@ -49,21 +49,21 @@ class Sign_Detector():
 
         # Convert binary image data to  cv image
         cv_image_input = self.cvBridge.imgmsg_to_cv2(msg, "bgr8")
-        self.image_np = np.frombuffer(msg.data, dtype=np.uint8)
-        self.image_np = self.image_np.reshape(self.image_res)
+        # self.image_np = np.frombuffer(msg.data, dtype=np.uint8)
+        # self.image_np = self.image_np.reshape(self.image_res)
 
         # TODO our model yolo is still getting trained. But we expect good results. 
 
         # Predicting results
-        self.results = self.model(self.image_np, verbose = False)
+        self.results = self.model(cv_image_input, verbose = False)
         res_plotted = self.results[0].plot()
-        cv_image_output = cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB)
+        cv_image_output = cv2.cvtColor(res_plotted, cv2.COLOR_RGB2RGBA)
         self.detect_sign()
         #frame = copy.deepcopy(self.image_np)
         
 
         # publishes traffic sign image in compressed type
-        self.pub_image_traffic_sign.publish(self.cvBridge.cv2_to_compressed_imgmsg(cv_image_output, "jpg"))
+        self.pub_image_traffic_sign.publish(self.cvBridge.cv2_to_imgmsg(cv_image_output, "bgra8"))
 
     def detect_sign(self):
         result = self.results[0]

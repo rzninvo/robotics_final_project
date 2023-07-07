@@ -13,7 +13,7 @@
     </include>
 
     <include>
-      <uri>model://turtlebot3_autorace_2020/traffic_ped_crs</uri>
+      <uri>model://turtlebot3_autorace_2020/traffic_children</uri>
       <pose> 0.74 1.95 0.13 0 0 -1.57</pose>
     </include>
     
@@ -38,7 +38,7 @@
     </include>   
 
     <include>
-      <uri>model://turtlebot3_autorace_2020/traffic_children</uri>
+      <uri>model://turtlebot3_autorace_2020/traffic_ped_crs</uri>
        <pose> 1.95 -1.0 0.125 0 -0 0.0</pose>
     </include>   
 

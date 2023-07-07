@@ -204,15 +204,15 @@ class YOLOControlLane():
                 self.lastError = error
                 twist = Twist()
                 rospy.loginfo("flag_parking" + str(self.stop_sign_flag))
-                if self.stop_sign_flag == 1 and self.stop_sign_action == 0:
+                if self.children_flag == 1 and self.children_action == 0:
                     twist.linear.x = min(self.MAX_VEL * ((1 - abs(error) / 1000) ** 2.2), 0.02)  
                     twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
                     self.counter += 1 
                     if self.counter >= 300:
-                        self.stop_sign_flag = 0
+                        self.children_flag = 0
                         self.counter = 0
-                        self.stop_sign_action = 1
-                        self.children_action = 0
+                        self.stop_sign_action = 0
+                        self.children_action = 1
                         self.ped_crs_action = 0
                     twist.linear.y = 0
                     twist.linear.z = 0
@@ -240,16 +240,16 @@ class YOLOControlLane():
                     self.pub_cmd_vel.publish(twist)
                     
 
-                elif self.children_flag == 1 and self.children_action == 0:
+                elif self.stop_sign_flag == 1 and self.stop_sign_action == 0:
                     twist.linear.x = 0  
                     twist.angular.z = 0
                     self.counter += 1 
-                    if self.counter >= 30:
-                        self.children_flag = 0
+                    if self.counter >= 100:
+                        self.stop_sign_flag = 0
                         self.counter = 0
-                        self.stop_sign_action = 0
+                        self.stop_sign_action = 1
                         self.ped_crs_action = 0
-                        self.children_action = 1
+                        self.children_action = 0
                     twist.linear.y = 0
                     twist.linear.z = 0
                     twist.angular.x = 0
