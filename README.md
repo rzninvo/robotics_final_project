@@ -120,3 +120,7 @@ foo@bar:~/catkin$ roslaunch robotics_final_project yolo_sign_detection.launch
 
 ### **Note**
 To be able to run this launch file correctly, you should copy the model folders inside the [/models](https://github.com/rzninvo/robotics_final_project/tree/main/models) directory to the `turtlebot3_simulations/turtlebot3_gazebo/models` directory.   
+
+### Expected Output Video
+https://github.com/rzninvo/robotics_final_project/assets/46872428/eab09aa3-0ee4-4532-8f73-2a0102e0d86a
+
