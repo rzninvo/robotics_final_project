@@ -95,3 +95,28 @@ In order to launch this section correctly, you should replace your `detect_node`
 
 ### Expected Output Video
 https://github.com/rzninvo/robotics_final_project/assets/46872428/6202c462-e4f5-4cee-8fce-918a1f095a73
+
+## Third Phase: YOLO Sign Detection
+We used the `SWIFT` algorithm to detect traffic signs, but we also wanted to use a different approach. That's why we used the [YOLOv8](https://docs.ultralytics.com/) **Object Detecton** model. We decided to train the `yolov8n.pt` model using the [Traffic and Road Signs](https://universe.roboflow.com/usmanchaudhry622-gmail-com/traffic-and-road-signs/dataset/1) dataset. The training results can be seen in the [/yolo](https://github.com/rzninvo/robotics_final_project/tree/main/yolo) directory. 
+
+### Components
+1. **The [Yolov8 Sign Detector Node](https://github.com/rzninvo/robotics_final_project/blob/main/src/yolov8_sign_detector.py):**   
+This node does all the traffic sign detections. It subcribes to the camera image input and uses the trained `YOLO` model to annotate and predict. If our model detects a traffic sign which it recognizes, it will publish a signal to it's corresponding topic.   
+2. **The [YOLO Control Lane](https://github.com/rzninvo/robotics_final_project/blob/main/src/yolo_control_lane):**   
+This node acts just like the previous control lane nodes, but the topics to which it subcribes and acts upon are different.
+
+
+### How do I run this?
+1. Navigate to the root directory of your `catkin` workspace.
+2. Source your workspace:   
+```console
+foo@bar:~/catkin$ . devel/setup.bash
+```
+
+3. Launch the provided launch file:   
+```console
+foo@bar:~/catkin$ roslaunch robotics_final_project yolo_sign_detection.launch
+```
+
+### **Note**
+To be able to run this launch file correctly, you should copy the model folders inside the [/models](https://github.com/rzninvo/robotics_final_project/tree/main/models) directory to the `turtlebot3_simulations/turtlebot3_gazebo/models` directory.   
