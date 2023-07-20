@@ -1,4 +1,45 @@
 #!/usr/bin/python3
+"""
+    This node is responsible for the robot's movement. It uses the VFH algorithm to calculate the best direction to move to.
+    It also uses a PID controller to control the robot's angular velocity. The robot moves to the next position when it reaches 
+    the epsilon distance from the goal position. The goal position is the next position in the goal_coordinates list.
+
+    This script requires the following parameters to be set in the launch file:
+        - linear_spead: the linear speed of the robot
+        - angular_k_p: the proportional gain of the PID controller
+        - angular_k_i: the integral gain of the PID controller
+        - angular_k_d: the derivative gain of the PID controller
+        - dt: the time interval between each iteration of the loop
+        - epsilon: the distance from the goal position that the robot should reach before moving to the next position
+        - alpha: the angle between the robot's heading and the goal position
+        - coefficient_a: the coefficient of the first term in the potential function
+        - coefficient_b: the coefficient of the second term in the potential function
+        - coefficient_l: the coefficient of the third term in the potential function
+        - valley_threshold: the threshold of the valley
+        - s_max: the maximum distance from the robot to the obstacle
+        - h_m: the maximum height of the valley
+    This script requires the following topics to be published:
+        - /cmd_vel: the topic that the robot subscribes to in order to move
+        - /odom: the topic that the robot subscribes to in order to get its position
+    This script provides the following services:
+        - vfh_planner_service: the service that the robot uses to get the goal angle and the height of the valley
+    This script uses the following libraries:
+        - rospy: the ROS Python library
+        - tf: the ROS library that is used to convert quaternions to euler angles
+        - nav_msgs.msg: the ROS library that is used to get the robot's position
+        - geometry_msgs.msg: the ROS library that is used to move the robot
+        - matplotlib.pyplot: the Python library that is used to plot the robot's path
+        - sensor_msgs.msg: the ROS library that is used to get the laser scan data
+        - numpy: the Python library that is used to calculate the robot's position
+        - robotics_final_project.srv: the ROS library that is used to provide the vfh_planner_service
+        - math: the Python library that is used to calculate the robot's position
+    The author of this script is Roham Zendehdel Nobari. All rights reserved.
+    Author email: rzninvo@gmail.com
+    ROS version: Noetic
+    Python version: 3.8.10
+    Date: 15 June 2021
+    LICENSE: MIT LICENSE, https://opensource.org/licenses/MIT
+"""
 
 import rospy
 import tf
@@ -13,7 +54,52 @@ from robotics_final_project.srv import vfh_planner, vfh_plannerResponse
 import math
 
 class VFHPathFinder:
+    """
+        This class is responsible for the robot's movement. It uses the VFH algorithm to calculate the best direction to move to.
+        It also uses a PID controller to control the robot's angular velocity. The robot moves to the next position when it reaches
+        the epsilon distance from the goal position. The goal position is the next position in the goal_coordinates list.
+
+        Attributes
+        ----------
+        cmd_vel : Publisher
+            the topic that the robot subscribes to in order to move
+        linear_spead : float
+            the linear speed of the robot
+        angular_k_p : float
+            the proportional gain of the PID controller
+        angular_k_i : float
+            the integral gain of the PID controller
+        angular_k_d : float
+            the derivative gain of the PID controller
+        dt : float
+            the time interval between each iteration of the loop
+        epsilon : float
+            the distance from the goal position that the robot should reach before moving to the next position
+        alpha : float
+            the angle between the robot's heading and the goal position
+        coefficient_a : float
+            the coefficient of the first term in the potential function
+        coefficient_b : float
+            the coefficient of the second term in the potential function
+        coefficient_l : float
+            the coefficient of the third term in the potential function
+        valley_threshold : float
+            the threshold of the valley
+        s_max : float
+            the maximum distance from the robot to the obstacle
+        h_m : float
+            the maximum height of the valley
+        rate : Rate
+            the rate of the loop
+        next_position : int
+            the index of the next position in the goal_coordinates list
+        goal_coordinates : list
+            the list of the goal positions
+        thresholds : list
+            the list of the thresholds of the valleys
+    """
     
+    # initializing the node
     def __init__(self) -> None:
         
         rospy.init_node("vfh_pathfinder_node" , anonymous=False)
@@ -42,7 +128,7 @@ class VFHPathFinder:
 
         #self.r = rospy.Rate(1000)
     
-    # heading of the robot 
+    # getting the robot's heading from the /odom topic
     def get_heading(self):
         
         # waiting for the most recent message from topic /odom
@@ -57,11 +143,13 @@ class VFHPathFinder:
         
         return yaw
 
+    # getting the robot's distance from the goal position
     def get_distance_from_goal(self):
         msg = rospy.wait_for_message("/odom" , Odometry)
         pos = msg.pose.pose.position
         return math.sqrt(((self.goal_coordinates[self.next_position][0] - pos.x) ** 2) + ((self.goal_coordinates[self.next_position][1] - pos.y) ** 2))
 
+    # getting the goal angle and the height of the valley from the vfh_planner_service. The goal angle is the angle between the robot's heading and the goal position.
     def get_goal_angle_from_server(self):
         msg = rospy.wait_for_message("/odom" , Odometry)
         heading = self.get_heading()
@@ -76,6 +164,7 @@ class VFHPathFinder:
         except rospy.ServiceException as e:
            rospy.loginfo(f'ERROR from vfh_planner_service: {e}')
 
+    # calculating the rotation error using the goal angle and the robot's heading. 
     def calculate_rotation_error(self, rotation_goal):
         heading = self.get_heading()
         if (rotation_goal <= math.radians(180)):
@@ -128,10 +217,12 @@ class VFHPathFinder:
             # if err_gamma == 0:
             #     err_gamma == angular_prev_theta_error
 
+            # PID controller for angular velocity of the robot
             angular_P = self.angular_k_p * err_gamma
             angular_I = self.angular_k_i * angular_sum_i_theta
             angular_D = self.angular_k_d * (err_gamma - angular_prev_theta_error)
 
+            # h_c for controlling the linear velocity of the robot
             h_c_prime = min(self.h_m, h_c)
             v = self.linear_spead * (1 - (h_c_prime / self.h_m))
 
